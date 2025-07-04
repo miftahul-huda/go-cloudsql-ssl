@@ -67,7 +67,7 @@ chmod 600 ./cert/client-key.pem
 ## 🚀 Run Locally
 
 ```bash
-git clone https://github.com/mhuda/go-cloud-ssl.git
+git clone https://github.com/miftahul-huda/go-cloud-ssl.git
 cd go-cloud-ssl
 go mod tidy
 go run main.go
