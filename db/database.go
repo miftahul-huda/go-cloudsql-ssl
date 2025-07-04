@@ -97,31 +97,14 @@ func Execute(config Config, query string, args ...interface{}) (sql.Result, erro
 	if DB == nil {
 		return nil, fmt.Errorf("database connection is not initialized")
 	}
-
-
-	if config.Database.Driver == "mysql" {
-		// For MySQL, use placeholders like ?
-		query = query
-	} else {
-		// For PostgreSQL, use placeholders like $1, $2, etc.
-		query = PrepareQuery(query, config.Database.Driver)
-	}	
-
-	println(config.Database.Driver, query, args)
-
-
+	// For PostgreSQL, use placeholders like $1, $2, etc.
+	query = PrepareQuery(query, config.Database.Driver)
 	return DB.Exec(query, args...)
 }
 
 func ExecuteRow(config Config, query string, args ...interface{}) (*sql.Row) {
 
-	if config.Database.Driver == "mysql" {
-		// For MySQL, use placeholders like ?
-		query = query
-	} else {
-		// For PostgreSQL, use placeholders like $1, $2, etc.
-		query = PrepareQuery(query, config.Database.Driver)
-	}	
-
+	// For PostgreSQL, use placeholders like $1, $2, etc.
+	query = PrepareQuery(query, config.Database.Driver)
 	return DB.QueryRow(query, args...)
 }
