@@ -1,0 +1,25 @@
+{{ define "content" }}
+<div class="form-container">
+  <form action="/create" method="POST">
+    <label>Name:</label>
+    <input name="name" required>
+    <BR/>
+    <label>Email:</label>
+    <input name="email" required>
+
+    <button type="submit">Add</button>
+  </form>
+</div>
+
+<ul>
+  {{ range . }}
+  <li>
+    <span>{{ .Name }} ({{ .Email }})</span>
+    <div>
+      <a href="/edit?id={{ .ID }}">Edit</a>
+      <a href="/delete?id={{ .ID }}">Delete</a>
+    </div>
+  </li>
+  {{ end }}
+</ul>
+{{ end }}

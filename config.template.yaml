@@ -1,0 +1,12 @@
+database:
+  driver: postgres    # postgresql atau mysql
+  host: dbhhost
+  port: 5432
+  user: dbuser
+  password: dbpassword
+  name: userdb
+ssl:
+  enabled: true
+  ca_cert: certs/server-ca.pem
+  client_cert: certs/client-cert.pem
+  client_key: certs/client-key.pem
