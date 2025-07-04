@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: go-cloud-ssl
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: go-cloud-ssl
+  template:
+    metadata:
+      labels:
+        app: go-cloud-ssl
+    spec:
+      containers:
+      - name: go-cloud-ssl
+        image: gcr.io/YOUR_PROJECT_ID/go-cloud-ssl
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: certs-volume
+          mountPath: /app/cert
+      volumes:
+      - name: certs-volume
+        secret:
+          secretName: cloudsql-client-certs

@@ -87,16 +87,77 @@ gcloud run deploy go-cloud-ssl   --image gcr.io/YOUR_PROJECT_ID/go-cloud-ssl   -
 
 ---
 
-## 🐳 Deploy to GKE
+## 🛠 Step-by-Step GKE Deployment
+
+---
+
+### ✅ 1. Build and Push Docker Image
 
 ```bash
 docker build -t gcr.io/YOUR_PROJECT_ID/go-cloud-ssl .
 docker push gcr.io/YOUR_PROJECT_ID/go-cloud-ssl
+```
 
+---
+
+### ✅ 2. Create Kubernetes Secret for SSL Certs
+
+First, download the certificates from Cloud SQL in GCP Console under:
+> **Cloud SQL → Your instance → Connections → SSL**
+
+You'll need:
+- `server-ca.pem`
+- `client-cert.pem`
+- `client-key.pem`
+
+Then create a Kubernetes secret:
+
+```bash
 kubectl create secret generic cloudsql-client-certs   --from-file=cert/server-ca.pem   --from-file=cert/client-cert.pem   --from-file=cert/client-key.pem
 ```
 
-Use `deployment.yaml` to mount the secret and deploy.
+---
+
+### ✅ 3. Deploy to GKE
+
+Apply the Kubernetes manifests:
+
+```bash
+kubectl apply -f k8s/
+```
+
+This will:
+
+- Create a **Deployment** for the app
+- Create a **LoadBalancer Service** to expose it publicly
+
+---
+
+### ✅ 4. Access the App
+
+After a few minutes, run:
+
+```bash
+kubectl get service go-cloud-ssl-service
+```
+
+Look for the `EXTERNAL-IP` and access the app via:
+
+```
+http://EXTERNAL-IP
+```
+
+---
+
+## ⚠️ Notes on SSL and Cloud SQL
+
+- The app reads the SSL files from `/app/cert` — ensure your cert filenames match the config.
+- PostgreSQL will fail if client key permissions are too open. Ensure your local version uses:
+
+```bash
+chmod 600 cert/client-key.pem
+```
+
 
 ---
 
