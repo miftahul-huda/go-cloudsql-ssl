@@ -2,6 +2,7 @@
 <form action="/update" method="POST">
     <input type="hidden" name="id" value="{{ .ID }}">
     Name: <input name="name" value="{{ .Name }}" required>
+    <br>
     Email: <input name="email" value="{{ .Email }}" required>
     <button type="submit">Update</button>
 </form>

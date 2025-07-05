@@ -1,110 +1,145 @@
 package db
 
+
 import (
-	"regexp"
-	"strings"
-	"crypto/tls"
-	"crypto/x509"
+	"context"
 	"database/sql"
 	"fmt"
-	"os"
-    "go-cloud-ssl/models"
+	"log"
+	"net"
+	"time"
+	"regexp"
 
-	mysql "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
+	"cloud.google.com/go/cloudsqlconn"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/go-sql-driver/mysql" // MySQL driver
+
+	"go-cloud-ssl/models"
 )
 
-var DB *sql.DB
+
 
 type Config struct {
 	Database struct {
-		Driver   string `yaml:"driver"`
-		Host     string `yaml:"host"`
-		Port     int    `yaml:"port"`
-		User     string `yaml:"user"`
-		Password string `yaml:"password"`
-		Name     string `yaml:"name"`
+		Driver                 string `yaml:"driver"`                    // "postgres" or "mysql"
+		InstanceConnectionName string `yaml:"instance_connection_name"` // project:region:instance
+		User                   string `yaml:"user"`                      // IAM user
+		Name                   string `yaml:"name"`                      // database name
+		Private                string `yaml:"private"`                   // private IP address
 	} `yaml:"database"`
-	SSL struct {
-		Enabled    bool   `yaml:"enabled"`
-		CACert     string `yaml:"ca_cert"`
-		ClientCert string `yaml:"client_cert"`
-		ClientKey  string `yaml:"client_key"`
-	} `yaml:"ssl"`
 }
 
+
+var DB *sql.DB
+
+
 func InitDB(cfg Config) {
-	var dsn string
-	var err error
+	dbUser := cfg.Database.User
+	dbName := cfg.Database.Name
+	instanceConnectionName := cfg.Database.InstanceConnectionName
+	usePrivate := cfg.Database.Private != ""
 
-	if cfg.Database.Driver == "mysql" {
-		if cfg.SSL.Enabled {
-			rootCertPool := x509.NewCertPool()
-			pem, err := os.ReadFile(cfg.SSL.CACert)
-			if err != nil {
-				panic(err)
-			}
-			rootCertPool.AppendCertsFromPEM(pem)
+	ctx := context.Background()
 
-			certs, err := tls.LoadX509KeyPair(cfg.SSL.ClientCert, cfg.SSL.ClientKey)
-			if err != nil {
-				panic(err)
-			}
-
-			mysql.RegisterTLSConfig("custom", &tls.Config{
-				RootCAs:      rootCertPool,
-				Certificates: []tls.Certificate{certs},
-			})
-		}
-
-		dsn = fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?tls=custom",
-			cfg.Database.User, cfg.Database.Password, cfg.Database.Host, cfg.Database.Port, cfg.Database.Name)
-	} else {
-		sslMode := "disable"
-		if cfg.SSL.Enabled {
-			sslMode = "verify-ca"
-		}
-		dsn = fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s sslcert=%s sslkey=%s sslrootcert=%s",
-			cfg.Database.Host, cfg.Database.Port, cfg.Database.User, cfg.Database.Password, cfg.Database.Name, sslMode,
-			cfg.SSL.ClientCert, cfg.SSL.ClientKey, cfg.SSL.CACert)
-	}
-
-	DB, err = sql.Open(cfg.Database.Driver, dsn)
+	// Create Cloud SQL dialer
+	dialer, err := cloudsqlconn.NewDialer(ctx,
+		cloudsqlconn.WithIAMAuthN(),
+		cloudsqlconn.WithLazyRefresh(),
+	)
 	if err != nil {
-		panic(err)
+		log.Fatalf("cloudsqlconn.NewDialer: %v", err)
 	}
 
+	var opts []cloudsqlconn.DialOption
+	if usePrivate {
+		opts = append(opts, cloudsqlconn.WithPrivateIP())
+	}
+
+	var dbPool *sql.DB
+
+	switch cfg.Database.Driver {
+	case "postgres":
+		// PostgreSQL DSN
+		dsn := fmt.Sprintf("user=%s dbname=%s", dbUser, dbName)
+
+		pgxConfig, err := pgx.ParseConfig(dsn)
+		if err != nil {
+			log.Fatalf("pgx.ParseConfig: %v", err)
+		}
+
+		pgxConfig.DialFunc = func(ctx context.Context, network, _ string) (net.Conn, error) {
+			log.Printf("Connecting to PostgreSQL instance: %s", instanceConnectionName)
+			return dialer.Dial(ctx, instanceConnectionName, opts...)
+		}
+
+		dbURI := stdlib.RegisterConnConfig(pgxConfig)
+		dbPool, err = sql.Open("pgx", dbURI)
+		if err != nil {
+			log.Fatalf("sql.Open (Postgres): %v", err)
+		}
+
+	case "mysql":
+		// Register MySQL dialer
+		mysqlDriverName := "cloudsql-mysql"
+		// Only register once
+		_ = sql.Drivers() // Avoid import optimization removal
+		sql.Register(mysqlDriverName, &mysql.MySQLDriver{})
+
+		mysql.RegisterDialContext("cloudsql+mysql", func(ctx context.Context, addr string) (net.Conn, error) {
+			log.Printf("Connecting to MySQL instance: %s", instanceConnectionName)
+			return dialer.Dial(ctx, instanceConnectionName, opts...)
+		})
+
+		dsn := fmt.Sprintf("%s@cloudsql+mysql(%s)/%s?parseTime=true", dbUser, instanceConnectionName, dbName)
+
+		dbPool, err = sql.Open("mysql", dsn)
+		if err != nil {
+			log.Fatalf("sql.Open (MySQL): %v", err)
+		}
+
+	default:
+		log.Fatalf("Unsupported driver: %s", cfg.Database.Driver)
+	}
+
+	// Optional: test connection
+	dbPool.SetMaxOpenConns(5)
+	dbPool.SetConnMaxLifetime(time.Minute * 5)
+
+	if err := dbPool.PingContext(ctx); err != nil {
+		log.Fatalf("DB Ping failed: %v", err)
+	}
+
+	DB = dbPool
+	log.Printf("✅ Connected to Cloud SQL (%s) using IAM auth", cfg.Database.Driver)
+
+	// Auto-migrate
 	models.Migrate(DB)
 }
 
-// PrepareQuery replaces ? placeholders to $n if driver is postgres
+
+// PrepareQuery replaces ? placeholders with $n for Postgres
 func PrepareQuery(query, driver string) string {
 	if driver != "postgres" {
-		return query // MySQL and others use "?"
+		return query
 	}
-
-	// Replace each ? with $1, $2, ...
-	var i int
+	i := 0
 	return regexp.MustCompile(`\?`).ReplaceAllStringFunc(query, func(_ string) string {
 		i++
-		return "$" + strings.TrimSpace((string(rune(i + '0'))))
+		return fmt.Sprintf("$%d", i)
 	})
 }
-
-
 
 func Execute(config Config, query string, args ...interface{}) (sql.Result, error) {
 	if DB == nil {
 		return nil, fmt.Errorf("database connection is not initialized")
 	}
-	// For PostgreSQL, use placeholders like $1, $2, etc.
 	query = PrepareQuery(query, config.Database.Driver)
+	log.Printf("Executing query: %s with args: %v", query, args)
 	return DB.Exec(query, args...)
 }
 
-func ExecuteRow(config Config, query string, args ...interface{}) (*sql.Row) {
-
-	// For PostgreSQL, use placeholders like $1, $2, etc.
+func ExecuteRow(config Config, query string, args ...interface{}) *sql.Row {
 	query = PrepareQuery(query, config.Database.Driver)
 	return DB.QueryRow(query, args...)
 }

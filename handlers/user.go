@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -10,10 +11,12 @@ import (
 
 func Index(w http.ResponseWriter, r *http.Request, config db.Config) {
 	rows, err := db.DB.Query("SELECT id, name, email FROM users")
+	
 	if err != nil {
 		http.Error(w, "Database query error: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	
 	defer rows.Close()
 
 	var users []models.User
@@ -34,7 +37,13 @@ func Create(w http.ResponseWriter, r *http.Request, config db.Config) {
 	if r.Method == "POST" {
 		name := r.FormValue("name")
 		email := r.FormValue("email")
-		db.Execute(config, "INSERT INTO users (name, email) VALUES (?, ?)", name, email)
+		result, err := db.Execute(config, "INSERT INTO users (name, email) VALUES (?, ?)", name, email)
+		if err != nil {
+			log.Printf("Insert error: %v", err)
+		} else {
+			log.Printf("Insert successful: %v", result)
+		}
+
 	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
