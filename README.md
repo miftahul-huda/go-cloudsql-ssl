@@ -20,10 +20,49 @@ Cloudsql Connector. The app can run locally or be deployed to Cloud Run or GKE.
 - Cloud SQL instance (PostgreSQL)
 - Service account (For example 'cloud-sql-user@lv-playground-appdev.iam.gserviceaccount.com') with IAM roles:
   - Cloud SQL Client 
-- Cloud SQL database user using the service account.
-- Cloud SQL enabled for IAM authentication
+- Cloud SQL instance database user using the service account.
+- Cloud SQL instance enabled for IAM authentication
 ---
 
+## Database Service Account Permission
+We have to set permission in the Postgresql database to allow service account to view, add, update, and delete data
+in the database.
+
+```sql
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON ALL TABLES IN SCHEMA public
+TO "cloud-sql-user@lv-playground-appdev.iam";
+
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN
+        SELECT schemaname, sequencename
+        FROM pg_sequences
+    LOOP
+        EXECUTE format(
+            'GRANT USAGE, UPDATE ON SEQUENCE %I.%I TO "%s";',
+            r.schemaname,
+            r.sequencename,
+            'cloud-sql-user@lv-playground-appdev.iam'
+        );
+    END LOOP;
+END $$;
+
+
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLES TO "cloud-sql-user@lv-playground-appdev.iam";
+
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT USAGE, SELECT ON SEQUENCES
+TO "cloud-sql-user@lv-playground-appdev.iam";
+```
+---
 ## ⚙️ Configuration
 
 Edit `config.yaml`:
