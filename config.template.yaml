@@ -1,12 +1,6 @@
 database:
-  driver: postgres    # postgresql atau mysql
-  host: dbhhost
-  port: 5432
-  user: dbuser
-  password: dbpassword
-  name: userdb
-ssl:
-  enabled: true
-  ca_cert: certs/server-ca.pem
-  client_cert: certs/client-cert.pem
-  client_key: certs/client-key.pem
+  driver: postgres #postgres atau mysql
+  instance_connection_name: "<PROJECT_ID>:<REGION>:<INSTANCE_NAME>"
+  user: "cloud-sql-user@lv-playground-appdev.iam"
+  name: "<DATABASE_NAME>"
+  private: ""

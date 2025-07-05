@@ -1,17 +1,33 @@
-# ==== Dockerfile ====
-FROM golang:1.21 AS builder
+# Stage 1: Build the Go binary
+FROM golang:1.21-alpine AS builder
 
+# Install git and necessary tools
+RUN apk add --no-cache git
+
+# Set the Current Working Directory inside the container
 WORKDIR /app
+
+# Copy go.mod and go.sum and download dependencies
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the source code
 COPY . .
-RUN go mod tidy
-RUN go build -o user-app .
 
-FROM gcr.io/distroless/base-debian11
+# Build the Go app
+RUN go build -o main .
+
+# Stage 2: Create a minimal final image
+FROM alpine:latest
+
+# Set working directory
 WORKDIR /app
-COPY --from=builder /app/user-app .
-COPY templates ./templates
-COPY config.yaml .
-COPY certs ./certs
 
+# Copy binary from builder
+COPY --from=builder /app/main .
+
+# Expose port (optional, e.g., 8080)
 EXPOSE 8080
-CMD ["/app/user-app"]
+
+# Command to run the executable
+CMD ["./main"]
