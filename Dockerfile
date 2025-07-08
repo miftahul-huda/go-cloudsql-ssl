@@ -6,6 +6,7 @@ WORKDIR /app
 
 COPY . .
 
+ENV PROJECT_ID="lv-playground-appdev"
 ENV driver=postgres 
 ENV instance_connection_name="lv-playground-appdev:asia-southeast2:dbinstance-testing"
 ENV db_user="cloud-sql-user@lv-playground-appdev.iam"

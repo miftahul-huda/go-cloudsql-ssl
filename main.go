@@ -7,6 +7,9 @@ import (
     "go-cloud-ssl/handlers"
 	"os"
 	//"cloud.google.com/go/compute/metadata"
+    "context"
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
+	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
 
 
@@ -38,7 +41,7 @@ func main() {
 	http.ListenAndServe(":8080", nil)
 }
 
-func loadConfig() {
+func loadConfigOld() {
 
 	config.Database.Driver = os.Getenv("driver")
 	config.Database.InstanceConnectionName = os.Getenv("instance_connection_name")
@@ -61,4 +64,64 @@ func loadConfig() {
 	}
 		*/
 
+}
+
+
+func loadConfig() {
+	ctx := context.Background()
+
+	driver, err := accessSecret(ctx, "db_driver")
+	if err != nil {
+		log.Fatalf("Failed to load driver: %v", err)
+	}
+	config.Database.Driver = driver
+
+	instance, err := accessSecret(ctx, "db_instance")
+	if err != nil {
+		log.Fatalf("Failed to load db_instance: %v", err)
+	}
+	config.Database.InstanceConnectionName = instance
+
+	user, err := accessSecret(ctx, "db_user")
+	if err != nil {
+		log.Fatalf("Failed to load db_user: %v", err)
+	}
+	config.Database.User = user
+
+	dbName, err := accessSecret(ctx, "db_name")
+	if err != nil {
+		log.Fatalf("Failed to load db_name: %v", err)
+	}
+	config.Database.Name = dbName
+
+	/*
+	private, err := accessSecret(ctx, "private")
+	if err != nil {
+		log.Fatalf("Failed to load private: %v", err)
+	}
+	config.Database.Private = private
+	*/
+}
+
+func accessSecret(ctx context.Context, name string) (string, error) {
+	client, err := secretmanager.NewClient(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer client.Close()
+
+	// Replace PROJECT_ID with your actual GCP project ID
+	PROJECT_ID := os.Getenv("PROJECT_ID")
+	secretName := "projects/" + PROJECT_ID + "/secrets/" + name + "/versions/latest"
+
+	req := &secretmanagerpb.AccessSecretVersionRequest{
+		Name: secretName,
+	}
+
+	result, err := client.AccessSecretVersion(ctx, req)
+	if err != nil {
+		return "", err
+	}
+
+	return string(result.Payload.Data), nil
 }
