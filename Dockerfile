@@ -1,33 +1,21 @@
-# Stage 1: Build the Go binary
-FROM golang:1.21-alpine AS builder
+FROM golang:alpine
 
-# Install git and necessary tools
-RUN apk add --no-cache git
+RUN apk update && apk add --no-cache git
 
-# Set the Current Working Directory inside the container
 WORKDIR /app
 
-# Copy go.mod and go.sum and download dependencies
-COPY go.mod go.sum ./
-RUN go mod download
-
-# Copy the source code
 COPY . .
 
-# Build the Go app
-RUN go build -o main .
+ENV driver=postgres 
+ENV instance_connection_name="lv-playground-appdev:asia-southeast2:dbinstance-testing"
+ENV db_user="cloud-sql-user@lv-playground-appdev.iam"
+ENV db_name="userdb"
+ENV private=""
 
-# Stage 2: Create a minimal final image
-FROM alpine:latest
+RUN go mod tidy
 
-# Set working directory
-WORKDIR /app
+RUN go build -o binary
 
-# Copy binary from builder
-COPY --from=builder /app/main .
-
-# Expose port (optional, e.g., 8080)
 EXPOSE 8080
 
-# Command to run the executable
-CMD ["./main"]
+ENTRYPOINT ["/app/binary"]

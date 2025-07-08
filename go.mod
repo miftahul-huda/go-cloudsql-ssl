@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/cloudsqlconn v1.17.2
 	github.com/go-sql-driver/mysql v1.9.3
 	github.com/jackc/pgx/v5 v5.7.5
-	gopkg.in/yaml.v2 v2.4.0
+	github.com/joho/godotenv v1.5.1
 )
 
 require (

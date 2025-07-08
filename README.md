@@ -65,14 +65,13 @@ TO "cloud-sql-user@lv-playground-appdev.iam";
 ---
 ## ⚙️ Configuration
 
-Edit `config.yaml`:
+Edit `.env`:
 
-```yaml
-database:
-  driver: postgres 
-  instance_connection_name: <PROJECT_ID>:<REGION>:<INSTANCE_NAME>
-  name: your-database-name
-  user: your-service-account-name #Without the .gserviceaccount.com , for example: cloud-sql-user@lv-playground-appdev.iam
+```
+driver=postgres 
+instance_connection_name=<PROJECT_ID>:<REGION>:<INSTANCE_NAME>
+name=your-database-name
+user=your-service-account-name #Without the .gserviceaccount.com , for example: cloud-sql-user@lv-playground-appdev.iam
 ```
 
 ---

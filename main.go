@@ -5,9 +5,8 @@ import (
 	"net/http"
     "go-cloud-ssl/db"
     "go-cloud-ssl/handlers"
-
-	"gopkg.in/yaml.v2"
 	"os"
+	"cloud.google.com/go/compute/metadata"
 )
 
 
@@ -40,12 +39,24 @@ func main() {
 }
 
 func loadConfig() {
-	file, err := os.ReadFile("config.yaml")
-	if err != nil {
-		log.Fatal("Cannot read config.yaml: ", err)
+
+	config.Database.Driver = os.Getenv("driver")
+	config.Database.InstanceConnectionName = os.Getenv("instance_connection_name")
+	config.Database.User = os.Getenv("db_user")
+	config.Database.Name = os.Getenv("db_name")
+	config.Database.Private = os.Getenv("private")
+
+		// Automatically fetch service account email from metadata server (Cloud Run)
+	if metadata.OnGCE() {
+		email, err := metadata.Email("default")
+		if err != nil {
+			log.Fatalf("Failed to get service account email: %v", err)
+		}
+		config.Database.User = email
+		log.Printf("Using service account: %s", email)
+	} else {
+		// Fallback for local development
+		config.Database.User = os.Getenv("db_user")
 	}
-	err = yaml.Unmarshal(file, &config)
-	if err != nil {
-		log.Fatal("Cannot parse config.yaml: ", err)
-	}
+
 }

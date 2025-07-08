@@ -22,12 +22,12 @@ import (
 
 type Config struct {
 	Database struct {
-		Driver                 string `yaml:"driver"`                    // "postgres" or "mysql"
-		InstanceConnectionName string `yaml:"instance_connection_name"` // project:region:instance
-		User                   string `yaml:"user"`                      // IAM user
-		Name                   string `yaml:"name"`                      // database name
-		Private                string `yaml:"private"`                   // private IP address
-	} `yaml:"database"`
+		Driver                 string                     // "postgres" or "mysql"
+		InstanceConnectionName string  // project:region:instance
+		User                   string                       // IAM user
+		Name                   string                       // database name
+		Private                string                    // private IP address
+	} 
 }
 
 
