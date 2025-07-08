@@ -6,7 +6,7 @@ import (
     "go-cloud-ssl/db"
     "go-cloud-ssl/handlers"
 	"os"
-	"cloud.google.com/go/compute/metadata"
+	//"cloud.google.com/go/compute/metadata"
 )
 
 
@@ -47,6 +47,7 @@ func loadConfig() {
 	config.Database.Private = os.Getenv("private")
 
 		// Automatically fetch service account email from metadata server (Cloud Run)
+		/*
 	if metadata.OnGCE() {
 		email, err := metadata.Email("default")
 		if err != nil {
@@ -58,5 +59,6 @@ func loadConfig() {
 		// Fallback for local development
 		config.Database.User = os.Getenv("db_user")
 	}
+		*/
 
 }
